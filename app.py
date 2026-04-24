@@ -67,25 +67,23 @@ JOB DESCRIPTION: {job_desc}
 Return ONLY JSON.
 """
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="llama-3.1-8b-instant",
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=1000
+        max_tokens=600
     )
     return response.choices[0].message.content
 
 def explain_jd(job_desc):
     prompt = f"""
-You are a career advisor helping an international student on OPT/F1 visa in the USA understand a job description.
-
-Analyze this job description and explain in simple, clear language.
+You are a career advisor helping an international student on OPT/F1 visa in the USA.
 
 Return ONLY a valid JSON object:
 {{
-    "role_summary": "2-3 sentences explaining what this job actually does day to day in simple words",
-    "key_requirements": ["requirement 1", "requirement 2", "requirement 3", "requirement 4", "requirement 5"],
-    "nice_to_have": ["nice to have 1", "nice to have 2", "nice to have 3"],
-    "sponsorship_situation": "Clear explanation of whether this job sponsors visas, what OPT/CPT means for this role, and whether an F1 student should apply",
-    "company_expectations": "What the company is really looking for in simple words - culture fit, experience level, etc",
+    "role_summary": "2 sentences explaining what this job does in simple words",
+    "key_requirements": ["req 1", "req 2", "req 3", "req 4", "req 5"],
+    "nice_to_have": ["nice 1", "nice 2", "nice 3"],
+    "sponsorship_situation": "One clear sentence about visa sponsorship for this role",
+    "company_expectations": "One sentence about what company really wants",
     "difficulty_level": "Easy or Medium or Hard",
     "apply_recommendation": "Yes or Maybe or No and one sentence why"
 }}
@@ -94,9 +92,9 @@ JOB DESCRIPTION: {job_desc}
 Return ONLY JSON.
 """
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="llama-3.1-8b-instant",
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=1000
+        max_tokens=600
     )
     return response.choices[0].message.content
 
@@ -104,27 +102,52 @@ def rewrite_all_bullets(resume_text, job_desc):
     prompt = f"""
 You are an expert resume writer.
 
-Extract ALL bullet points from this resume and rewrite each one to better match the job description.
-Make them impactful, ATS-friendly, with strong action verbs and measurable results where possible.
+Extract bullet points from this resume and rewrite each one to match the job description.
+Make them impactful and ATS-friendly with strong action verbs.
 
 Return ONLY a valid JSON array:
 [
-    {{"original": "original bullet 1", "rewritten": "rewritten bullet 1"}},
+    {{"original": "original bullet", "rewritten": "rewritten bullet"}},
     {{"original": "original bullet 2", "rewritten": "rewritten bullet 2"}}
 ]
 
 RESUME: {resume_text}
 JOB DESCRIPTION: {job_desc}
-Return ONLY the JSON array.
+Return ONLY the JSON array. Maximum 8 bullets.
 """
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="llama-3.1-8b-instant",
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=2000
+        max_tokens=1200
     )
     return response.choices[0].message.content
 
-def display_scores(data, title=""):
+def generate_cover_letter(resume_text, job_desc, company_name, job_title):
+    prompt = f"""
+Write a professional cover letter for an OPT/F1 student.
+
+3 paragraphs only:
+1. Opening — mention role at {company_name}, show enthusiasm
+2. Match 3 skills from resume to job with examples
+3. Closing — mention OPT authorization, call to action
+
+Keep under 250 words. Sound human not robotic.
+
+RESUME: {resume_text}
+JOB: {job_desc}
+COMPANY: {company_name}
+TITLE: {job_title}
+
+Write the letter directly.
+"""
+    response = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=700
+    )
+    return response.choices[0].message.content
+
+def display_scores(data):
     score = data["match_score"]
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -158,7 +181,7 @@ def display_scores(data, title=""):
     st.markdown("---")
     st.info(f"💡 {data['recommendation']}")
 
-def display_jd_explainer(job_desc, title=""):
+def display_jd_explainer(job_desc):
     st.markdown("---")
     st.markdown("### 📖 JD Explainer — What This Job Actually Means")
     st.markdown("*Breaking this down in simple words for an OPT/F1 student*")
@@ -208,41 +231,34 @@ def display_jd_explainer(job_desc, title=""):
                 st.error(f"✈️ Apply? {rec}")
 
     except Exception as e:
-        st.error(f"Error parsing JD: {e}")
-        st.markdown(result)
+        st.error(f"Error: {e}")
 
-def display_bullet_rewrites(resume_text, job_desc):
+def display_bullet_rewrites(bullets):
     st.markdown("---")
     st.markdown("### ✍️ Auto-Rewritten Bullet Points")
-    st.markdown("AI has automatically rewritten all your resume bullets to match this job:")
+    for i, item in enumerate(bullets, 1):
+        st.markdown(f"**Bullet {i}:**")
+        st.markdown(f'<div class="bullet-old">❌ Original: {item["original"]}</div>',
+            unsafe_allow_html=True)
+        st.markdown(f'<div class="bullet-new">✅ Rewritten: {item["rewritten"]}</div>',
+            unsafe_allow_html=True)
+        st.markdown("")
 
-    with st.spinner("Rewriting all bullet points..."):
-        result = rewrite_all_bullets(resume_text, job_desc)
-
-    try:
-        clean = result.strip().replace("```json", "").replace("```", "")
-        bullets = json.loads(clean)
-
-        for i, item in enumerate(bullets, 1):
-            st.markdown(f"**Bullet {i}:**")
-            st.markdown(
-                f'<div class="bullet-old">❌ Original: {item["original"]}</div>',
-                unsafe_allow_html=True)
-            st.markdown(
-                f'<div class="bullet-new">✅ Rewritten: {item["rewritten"]}</div>',
-                unsafe_allow_html=True)
-            st.markdown("")
-
-    except Exception as e:
-        st.error(f"Error parsing bullets: {e}")
-        st.markdown(result)
+def display_cover_letter(cover_letter, company_name, key_suffix=""):
+    st.markdown("---")
+    st.markdown("### 📝 Your Cover Letter")
+    st.success("✅ Cover Letter Ready!")
+    st.markdown(cover_letter)
+    st.download_button(
+        label="📥 Download Cover Letter",
+        data=cover_letter,
+        file_name=f"cover_letter_{company_name}.txt",
+        mime="text/plain",
+        key=f"download_{key_suffix}"
+    )
 
 # ── SINGLE JOB MODE ──
 if "Single" in mode:
-
-    for key in ["results", "resume_text", "selected_jobs"]:
-        if key in st.session_state:
-            del st.session_state[key]
 
     col1, col2 = st.columns(2)
     with col1:
@@ -250,28 +266,74 @@ if "Single" in mode:
         uploaded_file = st.file_uploader("Upload PDF", type=["pdf"])
     with col2:
         st.subheader("💼 Paste Job Description")
-        job_description = st.text_area("Job Description", height=200,
+        job_description = st.text_area("Job Description", height=150,
             placeholder="Paste the job description here...")
 
-    if st.button("🔍 Analyze, Explain & Rewrite", type="primary"):
+    st.markdown("### 📝 Cover Letter Details")
+    st.markdown("*Fill these in now so your cover letter is ready after analysis*")
+    col1, col2 = st.columns(2)
+    with col1:
+        company_name = st.text_input("Company Name",
+            placeholder="e.g. Google, Microsoft...")
+    with col2:
+        job_title_input = st.text_input("Job Title",
+            placeholder="e.g. ML Engineer, Data Scientist...")
+
+    if st.button("🔍 Analyze, Explain, Rewrite & Generate Cover Letter",
+                 type="primary"):
         if not uploaded_file:
             st.error("Please upload your resume!")
         elif not job_description:
             st.error("Please paste a job description!")
         else:
-            with st.spinner("Analyzing your resume..."):
-                resume_text = extract_text_from_pdf(uploaded_file)
+            resume_text = extract_text_from_pdf(uploaded_file)
+
+            with st.spinner("Step 1/3 — Analyzing resume match..."):
                 result = analyze_resume(resume_text, job_description)
             try:
                 clean = result.strip().replace("```json", "").replace("```", "")
                 data = json.loads(clean)
-                st.markdown("---")
-                display_scores(data)
-                display_jd_explainer(job_description)
-                display_bullet_rewrites(resume_text, job_description)
-            except Exception as e:
-                st.error(f"Error: {e}")
-                st.markdown(result)
+            except:
+                st.error("Error analyzing resume")
+                st.stop()
+
+            with st.spinner("Step 2/3 — Rewriting bullet points..."):
+                bullets_raw = rewrite_all_bullets(resume_text, job_description)
+                try:
+                    bullets_clean = bullets_raw.strip().replace("```json","").replace("```","")
+                    bullets = json.loads(bullets_clean)
+                except:
+                    bullets = []
+
+            cover_letter = ""
+            if company_name and job_title_input:
+                with st.spinner("Step 3/3 — Generating cover letter..."):
+                    cover_letter = generate_cover_letter(
+                        resume_text, job_description,
+                        company_name, job_title_input)
+
+            st.session_state["single_analysis"] = data
+            st.session_state["single_bullets"] = bullets
+            st.session_state["single_jd"] = job_description
+            st.session_state["single_cover_letter"] = cover_letter
+            st.session_state["single_company"] = company_name
+
+    if "single_analysis" in st.session_state:
+        data = st.session_state["single_analysis"]
+        bullets = st.session_state["single_bullets"]
+        cover_letter = st.session_state["single_cover_letter"]
+        company = st.session_state["single_company"]
+        job_desc = st.session_state["single_jd"]
+
+        st.markdown("---")
+        display_scores(data)
+        display_jd_explainer(job_desc)
+        display_bullet_rewrites(bullets)
+        if cover_letter:
+            display_cover_letter(cover_letter, company, key_suffix="single")
+        else:
+            st.markdown("---")
+            st.info("💡 Enter company name and job title before clicking analyze to get a cover letter!")
 
 # ── MULTI JOB MODE ──
 elif "Compare" in mode:
@@ -307,7 +369,6 @@ elif "Compare" in mode:
             else:
                 resume_text = extract_text_from_pdf(uploaded_file)
                 results = []
-
                 with st.spinner("Analyzing all jobs..."):
                     for title, desc in jobs:
                         result = analyze_resume(resume_text, desc)
@@ -320,8 +381,6 @@ elif "Compare" in mode:
 
                 st.session_state["results"] = results
                 st.session_state["resume_text"] = resume_text
-                if "selected_jobs" in st.session_state:
-                    del st.session_state["selected_jobs"]
 
     if "results" in st.session_state and st.session_state["results"]:
         results = st.session_state["results"]
@@ -345,7 +404,6 @@ elif "Compare" in mode:
 
         st.markdown("---")
         st.markdown("### 🎯 Which jobs do you want full analysis for?")
-        st.markdown("*Check the jobs you want — you can select multiple*")
 
         selected_jobs = []
         check_cols = st.columns(len(results))
@@ -359,17 +417,52 @@ elif "Compare" in mode:
                 if checked:
                     selected_jobs.append((title, desc, data))
 
-        if st.button("📋 Get Full Analysis for Selected Jobs", type="primary"):
+        st.markdown("### 📝 Cover Letter Details")
+        multi_company = st.text_input("Company Name",
+            placeholder="e.g. Google")
+
+        if st.button("📋 Get Full Analysis + Cover Letters", type="primary"):
             if not selected_jobs:
                 st.error("Please select at least one job!")
             else:
+                multi_bullets = {}
+                multi_cover_letters = {}
+
+                for title, desc, data in selected_jobs:
+                    with st.spinner(f"Rewriting bullets for {title}..."):
+                        bullets_raw = rewrite_all_bullets(resume_text, desc)
+                        try:
+                            bullets_clean = bullets_raw.strip().replace("```json","").replace("```","")
+                            multi_bullets[title] = json.loads(bullets_clean)
+                        except:
+                            multi_bullets[title] = []
+
+                    if multi_company:
+                        with st.spinner(f"Generating cover letter for {title}..."):
+                            letter = generate_cover_letter(
+                                resume_text, desc, multi_company, title)
+                            multi_cover_letters[title] = letter
+
                 st.session_state["selected_jobs"] = selected_jobs
+                st.session_state["multi_bullets"] = multi_bullets
+                st.session_state["multi_cover_letters"] = multi_cover_letters
+                st.session_state["multi_company"] = multi_company
 
     if "selected_jobs" in st.session_state and st.session_state["selected_jobs"]:
         resume_text = st.session_state["resume_text"]
-        for title, desc, data in st.session_state["selected_jobs"]:
+        multi_bullets = st.session_state.get("multi_bullets", {})
+        multi_cover_letters = st.session_state.get("multi_cover_letters", {})
+        company = st.session_state.get("multi_company", "")
+
+        for i, (title, desc, data) in enumerate(
+                st.session_state["selected_jobs"]):
             st.markdown("---")
             st.markdown(f"## 📋 Full Analysis: {title}")
-            display_scores(data, title)
-            display_jd_explainer(desc, title)
-            display_bullet_rewrites(resume_text, desc)
+            display_scores(data)
+            display_jd_explainer(desc)
+            if title in multi_bullets:
+                display_bullet_rewrites(multi_bullets[title])
+            if title in multi_cover_letters:
+                display_cover_letter(
+                    multi_cover_letters[title], company,
+                    key_suffix=f"multi_{i}")
