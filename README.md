@@ -32,11 +32,16 @@ streamlit run app.py
 2. Create a `.env` file in the project folder
 3. Add: `GROQ_API_KEY=your_key_here`
 
-## 📸 Demo
-> Upload your resume PDF + paste a job description → get instant AI analysis
+## 🚀 Live Demo
+👉 **[Try it live here](https://hema-resume-analyzer.streamlit.app/)**
+
+Upload your resume PDF + paste a job description → get instant AI analysis
+
+## ✅ Features Built
+- Visual score cards with match strength
+- Resume bullet point auto-rewriter
+- Multi-job comparison
+- JD Explainer for OPT/F1 students
 
 ## 🔮 Coming Soon
-- Visual score cards with color coding
-- Resume bullet point rewriter
-- Multi-job comparison
 - Cover letter generator
